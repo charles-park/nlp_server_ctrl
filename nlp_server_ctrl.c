@@ -45,12 +45,6 @@
 // maximum number of characters in command line.
 #define	CMD_LINE_CHARS		128
 
-#if defined(__DEBUG_APP__)
-	#define	fout	stdout
-#else
-	#define	fout	NULL
-#endif
-
 //------------------------------------------------------------------------------
 // Label printer and Iperf3 cmd option
 //------------------------------------------------------------------------------
@@ -103,12 +97,12 @@ int get_my_mac (char *mac_str)
 	for (i = 0; i < if_count; i++) {
 		if (ioctl(sock, SIOCGIFHWADDR, &ifr[i]) == 0) {
 			memcpy(mac, ifr[i].ifr_hwaddr.sa_data, 6);
-			fprintf(fout, "find device (%s), mac: %02x:%02x:%02x:%02x:%02x:%02x\n",
+			fprintf(stdout, "find device (%s), mac: %02x:%02x:%02x:%02x:%02x:%02x\n",
 				ifr[i].ifr_name, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 			memset (mac_str, 0, 20);
 			sprintf(mac_str, "%02x%02x%02x%02x%02x%02x",
 						mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
-			fprintf (fout, "My mac addr(NET_NAME = %s) = %s\n", NET_DEFAULT_NAME, mac);
+			fprintf (stdout, "My mac addr(NET_NAME = %s) = %s\n", NET_DEFAULT_NAME, mac);
 			if (!strncmp ("001e06", mac_str, strlen("001e06")))
 				return 1;
 		}
@@ -130,18 +124,18 @@ int get_my_ip (char *ip_str)
 	/* Open control socket. */
 	if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
 	{
-		fprintf (fout, "Cannot get control socket\n");
+		fprintf (stdout, "Cannot get control socket\n");
 		return 0;
 	}
 	strncpy(ifr.ifr_name, NET_DEFAULT_NAME, IFNAMSIZ); 
 	if (ioctl(fd, SIOCGIFADDR, &ifr) < 0) { 
-		fprintf (fout, "SIOCGIFADDR ioctl Error!!\n"); 
+		fprintf (stdout, "SIOCGIFADDR ioctl Error!!\n"); 
 		close(fd);
 		return 0;
 	}
 	memset(ip, 0x00, sizeof(ip));
 	inet_ntop(AF_INET, ifr.ifr_addr.sa_data+2, ip, sizeof(struct sockaddr)); 
-	fprintf (fout, "My ip addr(NET_NAME = %s) = %s\n", NET_DEFAULT_NAME, ip);
+	fprintf (stdout, "My ip addr(NET_NAME = %s) = %s\n", NET_DEFAULT_NAME, ip);
 
 	strncpy (ip_str, ip, strlen(ip));
 	return 1;
@@ -155,19 +149,19 @@ int net_status (char *ip_addr)
 
 	memset (cmd_line, 0x00, sizeof(cmd_line));
 	sprintf (cmd_line, "ping -c 1 -w 1 %s", ip_addr);
-	fprintf (fout, "[DGB] cmd_line =  %s\n", cmd_line);
+	fprintf (stdout, "[DGB] cmd_line =  %s\n", cmd_line);
 	if ((fp = popen(cmd_line, "r")) != NULL) {
 		memset (cmd_line, 0x00, sizeof(cmd_line));
 		while (fgets(cmd_line, 2048, fp)) {
 			if (NULL != strstr(cmd_line, "1 received")) {
 				pclose(fp);
-				fprintf(fout, "[DGB] %s = alive\n", __func__);
+				fprintf(stdout, "[DGB] %s = alive\n", __func__);
 				return 1;
 			}
 		}
 		pclose(fp);
 	}
-	fprintf(fout, "%s = dead\n", __func__);
+	fprintf(stdout, "%s = dead\n", __func__);
 	return 0;
 }
 
@@ -181,7 +175,7 @@ int iperf3_speed_check (char *ip_addr, char mode)
 	memset (cmd_line, 0x00, sizeof(cmd_line));
 	sprintf (cmd_line, "iperf3 -t 1 %s -c %s",
 					mode == MSG_TYPE_TCP ? "-b G" : "-b G -u", ip_addr);
-	fprintf (fout, "[DGB] cmd_line =  %s\n", cmd_line);
+	fprintf (stdout, "[DGB] cmd_line =  %s\n", cmd_line);
 	if ((fp = popen(cmd_line, "r")) != NULL) {
 		memset (cmd_line, 0x00, sizeof(cmd_line));
 		while (fgets(cmd_line, 2048, fp)) {
@@ -233,7 +227,7 @@ static int check_ip_range (char *ip_addr)
 
 	memset(my_ip, 0, sizeof(my_ip));
 	if (!get_my_ip (my_ip)) {
-		fprintf (fout, "Network device not found!\n");
+		fprintf (stdout, "Network device not found!\n");
 		return 0;
 	}
 
@@ -276,7 +270,7 @@ int nlp_server_connect (char *ip_addr)
 	struct sockaddr_in s_addr;
 
 	if (!check_ip_range (ip_addr)) {
-		fprintf (fout, "Out of range IP Address! (%s)\n", ip_addr);
+		fprintf (stdout, "Out of range IP Address! (%s)\n", ip_addr);
 		return 0;
 	}
 
@@ -285,7 +279,7 @@ int nlp_server_connect (char *ip_addr)
 		return 0;
 
 	if((nlp_server_fp = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) <0){
-		fprintf (fout, "socket create error : \n");
+		fprintf (stdout, "socket create error : \n");
 		return 0;
 	}
 	len = sizeof(struct sockaddr_in);
@@ -299,7 +293,7 @@ int nlp_server_connect (char *ip_addr)
 
 	// 지정한 주소로 접속
 	if(connect (nlp_server_fp, (struct sockaddr *)&s_addr, len) < 0) {
-		fprintf (fout, "connect error : %s\n", ip_addr);
+		fprintf (stdout, "connect error : %s\n", ip_addr);
 		nlp_server_disconnect (nlp_server_fp);
 		return 0;
 	}
@@ -324,10 +318,10 @@ int nlp_server_version (char *ip_addr, char *rdver)
 
 	// wait read ack
 	if (read_with_timeout(nlp_server_fp, rbuf, sizeof(rbuf), timeout)) {
-		fprintf (fout,"read version is %s\n", rbuf);
+		fprintf (stdout,"read version is %s\n", rbuf);
 		strncpy(rdver, rbuf, strlen(rbuf));
 	}	else
-		fprintf (fout,"read time out %d ms or rbuf is NULL!\n", timeout);
+		fprintf (stdout,"read time out %d ms or rbuf is NULL!\n", timeout);
 
 	nlp_server_disconnect (nlp_server_fp);
 	return nlp_server_fp ? 1 : 0;
@@ -346,7 +340,7 @@ int nlp_server_find (char *ip_addr)
 	int ip;
 
 	if (!get_my_ip (ip_addr))	{
-		fprintf (fout,"Network device not found!\n");
+		fprintf (stdout,"Network device not found!\n");
 		return 0;
 	}
 
@@ -404,12 +398,12 @@ int nlp_server_write (char *ip_addr, char mtype, char *msg, char ch)
 	memcpy(nlp_server_addr, ip_addr, strlen(ip_addr));
 
 	if (!net_status(nlp_server_addr)) {
-		fprintf(fout, "Netwrok unreachable!! (%s)\n", ip_addr);
+		fprintf(stdout, "Netwrok unreachable!! (%s)\n", ip_addr);
 		return 0;
 	}
 
 	if (!(nlp_server_version (ip_addr, nlp_server_ver))) {
-		fprintf(fout, "Network Label Printer get version error. ip = %s\n", ip_addr);
+		fprintf(stdout, "Network Label Printer get version error. ip = %s\n", ip_addr);
 		return 0;
 	}
 
@@ -418,17 +412,17 @@ int nlp_server_write (char *ip_addr, char mtype, char *msg, char ch)
 
 	if ((mtype == MSG_TYPE_TCP) || (mtype == MSG_TYPE_UDP)) {
 		sprintf (sbuf, "iperf %s", msg);
-		fprintf(fout, "send msg : %s\n", sbuf);
+		fprintf(stdout, "send msg : %s\n", sbuf);
 	} else {
 		if (!strncmp(nlp_server_ver, "202204", strlen("202204")-1)) {
 			// charles modified version
-			fprintf(fout, "new version nlp-printer. ver = %s\n", nlp_server_ver);
+			fprintf(stdout, "new version nlp-printer. ver = %s\n", nlp_server_ver);
 			sprintf(sbuf, "%s-%c,%s",
 							ch == CHANNEL_RIGHT ? "right" : "left",
 							mtype == MSG_TYPE_ERR ? 'e' : 'm',
 							msg);
 		} else {
-			fprintf(fout, "old version nlp-printer.\n");
+			fprintf(stdout, "old version nlp-printer.\n");
 			// original version
 			if (mtype == MSG_TYPE_ERR)
 				sprintf(sbuf, "error,%c,%s", ch ? '>' : '<', msg);
@@ -439,12 +433,12 @@ int nlp_server_write (char *ip_addr, char mtype, char *msg, char ch)
 
 	// 소켓통신 활성화
 	if (!(nlp_server_fp = nlp_server_connect (ip_addr))) {
-		fprintf(fout, "Network Label Printer connect error. ip = %s\n", ip_addr);
+		fprintf(stdout, "Network Label Printer connect error. ip = %s\n", ip_addr);
 		return 0;
 	}
 	// 서버로 문자열 전송
 	if ((len = write (nlp_server_fp, sbuf, strlen(sbuf))) != (int)strlen(sbuf))
-		fprintf(fout, "send bytes error : buf = %ld, write = %d\n", strlen(sbuf), len);
+		fprintf(stdout, "send bytes error : buf = %ld, write = %d\n", strlen(sbuf), len);
 
 	// 소켓 닫음
 	nlp_server_disconnect (nlp_server_fp);
@@ -563,9 +557,9 @@ int main(int argc, char **argv)
 
 	if (OPT_NLP_SERVER_FIND) {
 		if (nlp_server_find (NlpServerIP))
-			fprintf (fout, "Network Label Printer Fond! IP = %s\n", NlpServerIP);
+			fprintf (stdout, "Network Label Printer Fond! IP = %s\n", NlpServerIP);
 		else {
-			fprintf (fout, "Network Label Printer not found!\n");
+			fprintf (stdout, "Network Label Printer not found!\n");
 			return 0;
 		}
 	}
@@ -578,7 +572,7 @@ int main(int argc, char **argv)
 		speed = iperf3_speed_check (NlpServerIP, OPT_MSG_TYPE);
 		sleep(1);
 		nlp_server_write   (NlpServerIP, OPT_MSG_TYPE, "stop", 0);
-		fprintf (fout, "%s ipref3 %s mode bandwidth %d Mbits/sec\n",
+		fprintf (stdout, "%s ipref3 %s mode bandwidth %d Mbits/sec\n",
 				NlpServerIP,
 				OPT_MSG_TYPE == MSG_TYPE_TCP ? "TCP" : "UDP",
 				speed);
@@ -588,7 +582,7 @@ int main(int argc, char **argv)
 	if (OPT_MAC_PRINT) {
 		char mac_str[20];
 		if (get_my_mac (mac_str)) {
-			fprintf (fout, "Send to Net Printer(%s) %s!! (string : %s)\n",
+			fprintf (stdout, "Send to Net Printer(%s) %s!! (string : %s)\n",
 					NlpServerIP,
 					nlp_server_write (NlpServerIP, 0, mac_str, OPT_CHANNEL) ? "ok" : "false",
 					mac_str);
@@ -602,13 +596,13 @@ int main(int argc, char **argv)
 		memset (NlpServerMsg, 0, sizeof(NlpServerMsg));
 		strncpy (NlpServerMsg, OPT_MSG_STR, strlen(OPT_MSG_STR));
 		success = nlp_server_write (NlpServerIP, OPT_MSG_TYPE, NlpServerMsg, OPT_CHANNEL);
-		fprintf (fout, "Send to Net Printer(%s) %s!! (string : %s)\n",
+		fprintf (stdout, "Send to Net Printer(%s) %s!! (string : %s)\n",
 				NlpServerIP,
 				success ? "ok" : "false",
 				OPT_MSG_STR);
 	} else {
 		if (!OPT_MAC_PRINT && !OPT_NLP_SERVER_FIND)
-			fprintf (fout, "error: option is missing.\n-h option is to view help.\n");
+			fprintf (stdout, "error: option is missing.\n-h option is to view help.\n");
 	}
 	return 0;
 }
