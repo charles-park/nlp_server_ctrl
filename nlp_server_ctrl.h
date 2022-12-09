@@ -15,6 +15,16 @@
 #define __NLP_SERVER_CTRL__
 
 //------------------------------------------------------------------------------
+// Label printer and Iperf3 cmd option
+//------------------------------------------------------------------------------
+#define	NLP_SERVER_CHANNEL_LEFT     1
+#define	NLP_SERVER_CHANNEL_RIGHT    2
+#define	NLP_SERVER_MSG_TYPE_MAC     1
+#define NLP_SERVER_MSG_TYPE_ERR     2
+#define NLP_SERVER_MSG_TYPE_UDP     3
+#define NLP_SERVER_MSG_TYPE_TCP     4
+
+//------------------------------------------------------------------------------
 //	function prototype
 //------------------------------------------------------------------------------
 extern int get_my_mac	(char *mac_str);

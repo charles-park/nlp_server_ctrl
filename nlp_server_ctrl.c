@@ -37,6 +37,7 @@
 #include <sys/wait.h>
 #include <sys/ioctl.h>
 
+#include "nlp_server_ctrl.h"
 //------------------------------------------------------------------------------
 #define	NET_DEFAULT_NAME	"eth0"
 #define	NET_DEFAULT_PORT	8888
@@ -44,16 +45,6 @@
 
 // maximum number of characters in command line.
 #define	CMD_LINE_CHARS		128
-
-//------------------------------------------------------------------------------
-// Label printer and Iperf3 cmd option
-//------------------------------------------------------------------------------
-#define	CHANNEL_LEFT	1
-#define	CHANNEL_RIGHT	2
-#define	MSG_TYPE_MAC	1
-#define MSG_TYPE_ERR	2
-#define MSG_TYPE_UDP	3
-#define MSG_TYPE_TCP	4
 
 //------------------------------------------------------------------------------
 //	function prototype
@@ -64,6 +55,7 @@ int net_status	(char *ip_addr);
 
 int iperf3_speed_check 			(char *ip_addr, char mode);
 
+static int mac_file_check		(char *mac_str);
 static int read_with_timeout	(int fd, char *buf, int buf_size, int timeout_ms);
 static int check_ip_range		(char *ip_addr);
 
@@ -74,6 +66,33 @@ int nlp_server_find			(char *ip_addr);
 int nlp_server_write		(char *ip_addr, char mtype, char *msg, char ch);
 
 //------------------------------------------------------------------------------
+const char *mac_address_file = "/sys/class/net/eth0/address";
+const char *mac_linkspd_file = "/sys/class/net/eth0/speed";
+
+//------------------------------------------------------------------------------
+static int mac_file_check (char *mac_str)
+{
+	if (access (mac_address_file, F_OK) == 0) {
+		FILE *fp = fopen (mac_address_file, "r");
+		if (fp != NULL) {
+			char mac_read[20];
+			if (fgets (mac_read, sizeof(mac_read), fp) != NULL) {
+				if (!strncmp (mac_read, "00:1e:06", strlen("00:1e:06"))) {
+					sprintf (mac_str, "001e06%c%c%c%c%c%c",
+							mac_read[ 9],mac_read[10],
+							mac_read[12],mac_read[13],
+							mac_read[15],mac_read[17]);
+					fclose(fp);
+					return 1;
+				}
+			}
+			fclose(fp);
+		}
+	}
+	return 0;
+}
+
+//------------------------------------------------------------------------------
 int get_my_mac (char *mac_str)
 {
 	int sock, if_count, i;
@@ -81,8 +100,10 @@ int get_my_mac (char *mac_str)
 	struct ifreq ifr[10];
 	unsigned char mac[6];
 
-	memset(&ifc, 0, sizeof(struct ifconf));
+	if (mac_file_check(mac_str))
+		return 1;
 
+	memset(&ifc, 0, sizeof(struct ifconf));
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 
 	// 검색 최대 개수는 10개
@@ -174,7 +195,7 @@ int iperf3_speed_check (char *ip_addr, char mode)
 
 	memset (cmd_line, 0x00, sizeof(cmd_line));
 	sprintf (cmd_line, "iperf3 -t 1 %s -c %s",
-					mode == MSG_TYPE_TCP ? "-b G" : "-b G -u", ip_addr);
+					mode == NLP_SERVER_MSG_TYPE_TCP ? "-b G" : "-b G -u", ip_addr);
 	fprintf (stdout, "[DGB] cmd_line =  %s\n", cmd_line);
 	if ((fp = popen(cmd_line, "r")) != NULL) {
 		memset (cmd_line, 0x00, sizeof(cmd_line));
@@ -410,7 +431,7 @@ int nlp_server_write (char *ip_addr, char mtype, char *msg, char ch)
 	// 서버로 보내질 문자열 합치기
 	memset (sbuf, 0, sizeof(sbuf));
 
-	if ((mtype == MSG_TYPE_TCP) || (mtype == MSG_TYPE_UDP)) {
+	if ((mtype == NLP_SERVER_MSG_TYPE_TCP) || (mtype == NLP_SERVER_MSG_TYPE_UDP)) {
 		sprintf (sbuf, "iperf %s", msg);
 		fprintf(stdout, "send msg : %s\n", sbuf);
 	} else {
@@ -418,13 +439,13 @@ int nlp_server_write (char *ip_addr, char mtype, char *msg, char ch)
 			// charles modified version
 			fprintf(stdout, "new version nlp-printer. ver = %s\n", nlp_server_ver);
 			sprintf(sbuf, "%s-%c,%s",
-							ch == CHANNEL_RIGHT ? "right" : "left",
-							mtype == MSG_TYPE_ERR ? 'e' : 'm',
+							ch == NLP_SERVER_CHANNEL_RIGHT ? "right" : "left",
+							mtype == NLP_SERVER_MSG_TYPE_ERR ? 'e' : 'm',
 							msg);
 		} else {
 			fprintf(stdout, "old version nlp-printer.\n");
 			// original version
-			if (mtype == MSG_TYPE_ERR)
+			if (mtype == NLP_SERVER_MSG_TYPE_ERR)
 				sprintf(sbuf, "error,%c,%s", ch ? '>' : '<', msg);
 			else
 				sprintf(sbuf, "mac,%s", msg);
@@ -520,24 +541,24 @@ static void parse_opts (int argc, char *argv[])
 			break;
 		case 'c':
             if (!strncmp("right", optarg, strlen("right")))
-				OPT_CHANNEL = CHANNEL_RIGHT;
+				OPT_CHANNEL = NLP_SERVER_CHANNEL_RIGHT;
 			else
-				OPT_CHANNEL = CHANNEL_LEFT;
+				OPT_CHANNEL = NLP_SERVER_CHANNEL_LEFT;
 			break;
 		case 'u':
 			OPT_IPERF3_MODE = 1;
-			OPT_MSG_TYPE = MSG_TYPE_UDP;
+			OPT_MSG_TYPE = NLP_SERVER_MSG_TYPE_UDP;
 			break;
 		case 'i':
 			OPT_IPERF3_MODE = 1;
-			OPT_MSG_TYPE = MSG_TYPE_TCP;
+			OPT_MSG_TYPE = NLP_SERVER_MSG_TYPE_TCP;
 			break;
 		case 'e':
-			OPT_MSG_TYPE = MSG_TYPE_ERR;
+			OPT_MSG_TYPE = NLP_SERVER_MSG_TYPE_ERR;
 			OPT_MSG_STR = optarg;
 			break;
 		case 'm':
-			OPT_MSG_TYPE = MSG_TYPE_MAC;
+			OPT_MSG_TYPE = NLP_SERVER_MSG_TYPE_MAC;
 			OPT_MSG_STR = optarg;
 			break;
 		default:
@@ -574,7 +595,7 @@ int main(int argc, char **argv)
 		nlp_server_write   (NlpServerIP, OPT_MSG_TYPE, "stop", 0);
 		fprintf (stdout, "%s ipref3 %s mode bandwidth %d Mbits/sec\n",
 				NlpServerIP,
-				OPT_MSG_TYPE == MSG_TYPE_TCP ? "TCP" : "UDP",
+				OPT_MSG_TYPE == NLP_SERVER_MSG_TYPE_TCP ? "TCP" : "UDP",
 				speed);
 		return 0;
 	}
