@@ -56,6 +56,7 @@ int net_status	(char *ip_addr);
 int iperf3_speed_check 			(char *ip_addr, char mode);
 
 static int mac_file_check		(char *mac_str);
+static int ip_check_cmd			(char *ip_str);
 static int read_with_timeout	(int fd, char *buf, int buf_size, int timeout_ms);
 static int check_ip_range		(char *ip_addr);
 
@@ -132,6 +133,28 @@ int get_my_mac (char *mac_str)
 }
 
 //------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+static int ip_check_cmd (char *ip_str)
+{
+	FILE *fp;
+	char ip_addr[20];
+
+	if ((fp = popen("hostname -I", "r")) != NULL) {
+		memset (ip_addr, 0x00, sizeof(ip_addr));
+		while (fgets(ip_addr, 2048, fp)) {
+			if (NULL != strstr(ip_addr, NET_IP_BASE)) {
+				fprintf(stdout, "[DGB] %s = %s\n", __func__, ip_addr);
+				strncpy (ip_str, ip_addr, strlen(ip_addr) -1);
+				pclose(fp);
+				return 1;
+			}
+		}
+		pclose(fp);
+	}
+	return 0;
+}
+
+//------------------------------------------------------------------------------
 //	현재 device의 eth0에 할당되어진 ip를 얻어온다.
 //	성공 return 1, 실패 return 0
 //------------------------------------------------------------------------------
@@ -140,6 +163,9 @@ int get_my_ip (char *ip_str)
 	int fd;
 	struct ifreq ifr;
 	char ip[16];
+
+	if (ip_check_cmd (ip_str))
+		return 1;
 
 	/* this entire function is almost copied from ethtool source code */
 	/* Open control socket. */
