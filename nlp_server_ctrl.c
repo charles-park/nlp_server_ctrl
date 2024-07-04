@@ -403,6 +403,8 @@ int nlp_server_find (char *ip_addr)
 			ip_tok = strstr(cmd_line, NET_IP_BASE);
 			if (ip_tok != NULL) {
 				if (net_status (ip_tok)) {
+					// ip_addr arrary size = 20 bytes
+					memset (ip_addr, 0, 20);
 					strncpy(ip_addr, ip_tok, strlen(ip_tok)-1);
 					pclose(fp);
 					return 1;
