@@ -73,6 +73,7 @@ const char *mac_linkspd_file = "/sys/class/net/eth0/speed";
 //------------------------------------------------------------------------------
 static int mac_file_check (char *mac_str)
 {
+printf ("%s(%d)\n", __func__, __LINE__);
 	if (access (mac_address_file, F_OK) == 0) {
 		FILE *fp = fopen (mac_address_file, "r");
 		if (fp != NULL) {
@@ -82,7 +83,7 @@ static int mac_file_check (char *mac_str)
 					sprintf (mac_str, "001e06%c%c%c%c%c%c",
 							mac_read[ 9],mac_read[10],
 							mac_read[12],mac_read[13],
-							mac_read[15],mac_read[17]);
+							mac_read[15],mac_read[16]);
 					fclose(fp);
 					return 1;
 				}
@@ -174,14 +175,14 @@ int get_my_ip (char *ip_str)
 		fprintf (stdout, "Cannot get control socket\n");
 		return 0;
 	}
-	strncpy(ifr.ifr_name, NET_DEFAULT_NAME, IFNAMSIZ); 
-	if (ioctl(fd, SIOCGIFADDR, &ifr) < 0) { 
-		fprintf (stdout, "SIOCGIFADDR ioctl Error!!\n"); 
+	strncpy(ifr.ifr_name, NET_DEFAULT_NAME, IFNAMSIZ);
+	if (ioctl(fd, SIOCGIFADDR, &ifr) < 0) {
+		fprintf (stdout, "SIOCGIFADDR ioctl Error!!\n");
 		close(fd);
 		return 0;
 	}
 	memset(ip, 0x00, sizeof(ip));
-	inet_ntop(AF_INET, ifr.ifr_addr.sa_data+2, ip, sizeof(struct sockaddr)); 
+	inet_ntop(AF_INET, ifr.ifr_addr.sa_data+2, ip, sizeof(struct sockaddr));
 	fprintf (stdout, "My ip addr(NET_NAME = %s) = %s\n", NET_DEFAULT_NAME, ip);
 
 	strncpy (ip_str, ip, strlen(ip));
@@ -375,7 +376,7 @@ int nlp_server_version (char *ip_addr, char *rdver)
 }
 
 //------------------------------------------------------------------------------
-//	nmap을 실행하여 나의 eth0에 할당되어진 현재 주소를 얻은 후 
+//	nmap을 실행하여 나의 eth0에 할당되어진 현재 주소를 얻은 후
 //	같은 네트워크상의 연결된 장치를 스켄하여 연결을 시도한다.
 //	성공시 입력 변수에 접속되어진 주소를 복사한다.
 //	성공 return 1, 실패 return 0
