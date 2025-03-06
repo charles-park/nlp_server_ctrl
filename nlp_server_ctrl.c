@@ -40,7 +40,7 @@
 #include "nlp_server_ctrl.h"
 //------------------------------------------------------------------------------
 #define	NET_DEFAULT_NAME	"eth0"
-#define	NET_DEFAULT_PORT	9000
+#define	NET_DEFAULT_PORT	9002
 #define NET_IP_BASE			"192.168."
 
 // maximum number of characters in command line.
