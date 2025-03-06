@@ -397,7 +397,7 @@ int nlp_server_find (char *ip_addr)
 	ip_tok = strtok(NULL,     ".");	ip = atoi(ip_tok);
 
 	memset(cmd_line, 0, sizeof(cmd_line));
-	sprintf(cmd_line, "nmap %s%d.* -p T:%4d --open 2<&1", NET_IP_BASE, ip, NET_DEFAULT_PORT);
+	sprintf(cmd_line, "nmap %s%d.* -p T:%4d -T5 --open 2<&1", NET_IP_BASE, ip, NET_DEFAULT_PORT);
 
 	if ((fp = popen(cmd_line, "r")) != NULL) {
 		memset(cmd_line, 0, sizeof(cmd_line));
