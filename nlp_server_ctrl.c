@@ -371,11 +371,12 @@ int nlp_server_version (char *ip_addr, char *rdver)
 	if (read_with_timeout(nlp_server_fp, rbuf, sizeof(rbuf), timeout)) {
 		fprintf (stdout,"read version is %s\n", rbuf);
 		strncpy(rdver, rbuf, strlen(rbuf));
+		nlp_server_disconnect (nlp_server_fp);
+		return 1;
 	}	else
 		fprintf (stdout,"read time out %d ms or rbuf is NULL!\n", timeout);
 
-	nlp_server_disconnect (nlp_server_fp);
-	return nlp_server_fp ? 1 : 0;
+	return 0;
 }
 
 //------------------------------------------------------------------------------
@@ -395,7 +396,7 @@ int nlp_server_find (const char *fname, int nlp_port, char *ip_addr)
 	if ((fp = fopen (fname, "rt")) != NULL) {
 		fgets  (ip_addr, 20, fp);
 		fclose (fp);
-		if (nlp_server_version (ip_addr, cmd_line) == 1) return 1;
+		if (nlp_server_version (ip_addr, cmd_line))	return 1;
 	}
 
 	if (!get_my_ip (ip_addr))	{
