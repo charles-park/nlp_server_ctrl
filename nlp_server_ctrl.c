@@ -40,11 +40,12 @@
 #include "nlp_server_ctrl.h"
 //------------------------------------------------------------------------------
 #define	NET_DEFAULT_NAME	"eth0"
-#define	NET_DEFAULT_PORT	9002
 #define NET_IP_BASE			"192.168."
 
 // maximum number of characters in command line.
 #define	CMD_LINE_CHARS		128
+
+volatile int NET_DEFAULT_PORT = 8888;
 
 //------------------------------------------------------------------------------
 //	function prototype
@@ -63,7 +64,7 @@ static int check_ip_range		(char *ip_addr);
 void nlp_server_disconnect	(int nlp_server_fp);
 int nlp_server_connect		(char *ip_addr);
 int nlp_server_version 		(char *ip_addr, char *rdver);
-int nlp_server_find			(char *ip_addr);
+int nlp_server_find			(const char *fname, int nlp_port, char *ip_addr);
 int nlp_server_write		(char *ip_addr, char mtype, char *msg, char ch);
 
 //------------------------------------------------------------------------------
@@ -319,16 +320,16 @@ int nlp_server_connect (char *ip_addr)
 
 	if (!check_ip_range (ip_addr)) {
 		fprintf (stdout, "Out of range IP Address! (%s)\n", ip_addr);
-		return 0;
+		return -1;
 	}
 
 	// ip port ping test
 	if (!net_status (ip_addr))
-		return 0;
+		return -1;
 
 	if((nlp_server_fp = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) <0){
 		fprintf (stdout, "socket create error : \n");
-		return 0;
+		return -1;
 	}
 	len = sizeof(struct sockaddr_in);
 
@@ -343,7 +344,7 @@ int nlp_server_connect (char *ip_addr)
 	if(connect (nlp_server_fp, (struct sockaddr *)&s_addr, len) < 0) {
 		fprintf (stdout, "connect error : %s\n", ip_addr);
 		nlp_server_disconnect (nlp_server_fp);
-		return 0;
+		return -1;
 	}
 	return nlp_server_fp;
 }
@@ -357,6 +358,8 @@ int nlp_server_version (char *ip_addr, char *rdver)
 {
 	char sbuf[16], rbuf[16];
 	int nlp_server_fp = nlp_server_connect (ip_addr), timeout = 1000;
+
+	if (nlp_server_fp < 0)	return 0;
 
 	memset (sbuf, 0, sizeof(sbuf));
 	memset (rbuf, 0, sizeof(rbuf));
@@ -381,11 +384,19 @@ int nlp_server_version (char *ip_addr, char *rdver)
 //	성공시 입력 변수에 접속되어진 주소를 복사한다.
 //	성공 return 1, 실패 return 0
 //------------------------------------------------------------------------------
-int nlp_server_find (char *ip_addr)
+int nlp_server_find (const char *fname, int nlp_port, char *ip_addr)
 {
 	FILE *fp;
 	char cmd_line[CMD_LINE_CHARS], *ip_tok;
 	int ip;
+
+	NET_DEFAULT_PORT = nlp_port;
+
+	if ((fp = fopen (fname, "rt")) != NULL) {
+		fgets  (ip_addr, 20, fp);
+		fclose (fp);
+		if (nlp_server_version (ip_addr, cmd_line) == 1) return 1;
+	}
 
 	if (!get_my_ip (ip_addr))	{
 		fprintf (stdout,"Network device not found!\n");
@@ -408,6 +419,10 @@ int nlp_server_find (char *ip_addr)
 					memset (ip_addr, 0, 20);
 					strncpy(ip_addr, ip_tok, strlen(ip_tok)-1);
 					pclose(fp);
+					if ((fp = fopen (fname, "wt")) != NULL) {
+						fputs  (ip_addr, fp);
+						fclose (fp);
+					}
 					return 1;
 				}
 			}
@@ -482,7 +497,7 @@ int nlp_server_write (char *ip_addr, char mtype, char *msg, char ch)
 	}
 
 	// 소켓통신 활성화
-	if (!(nlp_server_fp = nlp_server_connect (ip_addr))) {
+	if ((nlp_server_fp = nlp_server_connect (ip_addr)) < 0) {
 		fprintf(stdout, "Network Label Printer connect error. ip = %s\n", ip_addr);
 		return 0;
 	}
