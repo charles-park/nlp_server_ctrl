@@ -396,6 +396,7 @@ int nlp_server_find (const char *fname, int nlp_port, char *ip_addr)
 	if ((fp = fopen (fname, "rt")) != NULL) {
 		fgets  (ip_addr, 20, fp);
 		fclose (fp);
+		system("sync");
 		if (nlp_server_version (ip_addr, cmd_line))	return 1;
 	}
 
@@ -423,6 +424,7 @@ int nlp_server_find (const char *fname, int nlp_port, char *ip_addr)
 					if ((fp = fopen (fname, "wt")) != NULL) {
 						fputs  (ip_addr, fp);
 						fclose (fp);
+						system("sync");
 					}
 					return 1;
 				}
